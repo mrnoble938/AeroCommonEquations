@@ -924,6 +924,53 @@ class AirspeedConversions():
         '''
         v_kts = (Constants.ftperStMi() / Constants.ftperNm()) * v_mph
         return v_kts
+    def ktas_from_gps(gs:list,trk:list):
+        '''
+        Based on https://kilohotel.com/rv8/rvlinks/doug_gray/TAS_FNL4.pdf
+        Parameters
+        ----------
+        gs : list
+            DESCRIPTION.
+        trk : list
+            DESCRIPTION.
+
+        Returns
+        -------
+        KTAS, (wind spd, wind dir), (hdg1, hsg2, had3)
+
+        '''
+        if (2 < len(gs) < 5) and (2 < len(trk) < 5):
+            pass
+        else:
+            raise ValueError('Ground Speed and Track must be of length 3 or 4')
+        if len(gs) != len(trk):
+            raise ValueError('GS and TRK must be same length')
+            
+        x, y, b, m, hdg = [], [], [], [], []
+        
+        for (GS, TRK) in zip(gs, trk):
+            x.append(GS * math.sin(math.pi * (360. - TRK) / 180.))
+            y.append(GS * math.cos(math.pi * (360. - TRK) / 180.))
+        
+        m.append(-1 * (x[1] - x[0]) / (y[1] - y[0]))
+        m.append(-1 * (x[2] - x[0]) / (y[2] - y[0]))
+        
+        b.append((y[0] + y[1]) / 2 - m[0] * (x[0] + x[1]) / 2)
+        b.append((y[0] + y[2]) / 2 - m[1] * (x[0] + x[2]) / 2)
+        
+        w_x = (b[0] - b[1]) / (m[1] - m[0]) 
+        w_y = m[0] * w_x + b[0]
+        
+        wind_speed = round(math.sqrt(w_x ** 2 + w_y ** 2),1)
+        wind_dir = round((540. - (180. / math.pi * math.atan2(w_x, w_y))) % 360.,)
+        
+        ktas = round(math.sqrt((x[0] - w_x) ** 2 + (y[0] - w_y) ** 2),1)
+        
+        hdg.append(round((540. - (180. / math.pi * math.atan2(w_x - x[0], w_y - y[0]))) % 360.,1))
+        hdg.append(round((540. - (180. / math.pi * math.atan2(w_x - x[1], w_y - y[1]))) % 360.,1))
+        hdg.append(round((540. - (180. / math.pi * math.atan2(w_x - x[2], w_y - y[2]))) % 360.,1))
+        
+        return ktas, (wind_speed, wind_dir), (hdg[0], hdg[1], hdg[2])
 
 class UnitConversions():
     def meters_from_feet(dist_ft:float):
